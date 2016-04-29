@@ -65,12 +65,12 @@ int main()
     libnet_ethernet_hdr* eth_header = (libnet_ethernet_hdr*)send_buf;
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(send_buf + sizeof(libnet_ethernet_hdr));\
 
-    eth_header->ether_dhost[0] = 0xff; //0x00;
-    eth_header->ether_dhost[1] = 0xff; //0x0c;
-    eth_header->ether_dhost[2] = 0xff; //0x29;
-    eth_header->ether_dhost[3] = 0xff; //0x91;
-    eth_header->ether_dhost[4] = 0xff; //0x57;
-    eth_header->ether_dhost[5] = 0xff; //0x56;
+    eth_header->ether_dhost[0] = 0xff;
+    eth_header->ether_dhost[1] = 0xff;
+    eth_header->ether_dhost[2] = 0xff;
+    eth_header->ether_dhost[3] = 0xff;
+    eth_header->ether_dhost[4] = 0xff;
+    eth_header->ether_dhost[5] = 0xff;
 
     eth_header->ether_shost[0] = 0x00;
     eth_header->ether_shost[1] = 0x0c;
@@ -85,7 +85,7 @@ int main()
     arp_header->ar_pro = htons(ETHERTYPE_IP);
     arp_header->ar_hln = 6;
     arp_header->ar_pln = 4;
-    arp_header->ar_op = htons(ARPOP_REPLY);
+    arp_header->ar_op = htons(ARPOP_REQUEST);
 
     arp_header->ar_sha[0] = 0x00;
     arp_header->ar_sha[1] = 0x0c;
@@ -97,23 +97,23 @@ int main()
     arp_header->ar_sip[0] = 0xc0;
     arp_header->ar_sip[1] = 0xa8;
     arp_header->ar_sip[2] = 0xa2;
-    arp_header->ar_sip[3] = 0x02;
+    arp_header->ar_sip[3] = 0x80;
 
-    arp_header->ar_tha[0] = 0xff; //0x00;
-    arp_header->ar_tha[1] = 0xff; //0x0c;
-    arp_header->ar_tha[2] = 0xff; //0x29;
-    arp_header->ar_tha[3] = 0xff; //0x91;
-    arp_header->ar_tha[4] = 0xff; //0x57;
-    arp_header->ar_tha[5] = 0xff; //0x56;
+    arp_header->ar_tha[0] = 0x00;
+    arp_header->ar_tha[1] = 0x00;
+    arp_header->ar_tha[2] = 0x00;
+    arp_header->ar_tha[3] = 0x00;
+    arp_header->ar_tha[4] = 0x00;
+    arp_header->ar_tha[5] = 0x00;
 
-    arp_header->ar_tip[0] = 0xff; //0xc0;
-    arp_header->ar_tip[1] = 0xff; //0xa8;
-    arp_header->ar_tip[2] = 0xff; //0xa2;
-    arp_header->ar_tip[3] = 0xff; //0x81;
+    arp_header->ar_tip[0] = 0xc0;
+    arp_header->ar_tip[1] = 0xa8;
+    arp_header->ar_tip[2] = 0xa2;
+    arp_header->ar_tip[3] = 0x02;
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
-    if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)) + 18) != 0)
+    if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
         printf("arp error\n");
 
     else{
