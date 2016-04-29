@@ -113,12 +113,16 @@ int main()
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
-    if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)) + 18) != 0)
-        printf("arp error\n");
+    while(1){
+        if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
+            printf("arp error\n");
 
-    else{
-        for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", send_buf[i]);
+        else{
+            for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", send_buf[i]);
 
-        printf("arp send\n");
+            printf("arp send\n");
+        }
+
+        sleep(3);
      }
 }
