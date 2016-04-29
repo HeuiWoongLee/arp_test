@@ -61,7 +61,7 @@ int main()
         return(2);
     }
 
-    u_char send_buf[sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)] =  {0,};
+    u_char send_buf[sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18] =  {0,};
     libnet_ethernet_hdr* eth_header = (libnet_ethernet_hdr*)send_buf;
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(send_buf + sizeof(libnet_ethernet_hdr));\
 
@@ -111,13 +111,14 @@ int main()
     arp_header->ar_tip[2] = 0xa2;
     arp_header->ar_tip[3] = 0x02;
 
-    if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr))) != 0)
+    for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
+
+    if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
         printf("arp error\n");
 
     else{
-        for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)); i++) printf("%02x ", send_buf[i]);
+        for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", send_buf[i]);
 
         printf("arp send\n");
-        exit(1);
      }
 }
