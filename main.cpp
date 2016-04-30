@@ -5,8 +5,6 @@
 #include <libnet.h>
 #include <pthread.h>
 
-pcap_t *handle;
-
 struct custom_arp_hdr
 {
     uint16_t ar_hrd;         /* format of hardware address */
@@ -43,56 +41,15 @@ struct custom_arp_hdr
 
 void *packet_handler(void *arg)
 {
-    int sock = *(int*)arg;
-    const u_char *p;
-    struct pcap_pkthdr *h;
-    int res = pcap_next_ex(handle, &h, &p);
-    struct libnet_ethernet_hdr* eth_check = (struct libnet_ethernet_hdr*)p;
-printf("c\n");
-    if(res == -1) pthread_exit(NULL);
-    if(res == 1){
-        if((eth_check->ether_shost[0] == 0x00) &&
-                ((eth_check->ether_shost[1]) == 0x0c) &&
-                ((eth_check->ether_shost[2]) == 0x29) &&
-                ((eth_check->ether_shost[3]) == 0x81) &&
-                ((eth_check->ether_shost[4]) == 0x57) &&
-                ((eth_check->ether_shost[5]) == 0x56)){
-            eth_check->ether_dhost[0] = 0x00;
-            eth_check->ether_dhost[1] = 0x50;
-            eth_check->ether_dhost[2] = 0x56;
-            eth_check->ether_dhost[3] = 0xe9;
-            eth_check->ether_dhost[4] = 0xa9;
-            eth_check->ether_dhost[5] = 0x38;
+    char errbuf_th[PCAP_ERRBUF_SIZE];
+    pcap_t *handle_th;
 
-            if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0)
-                printf("packet error\n");
+    handle_th = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf_th);
 
-            else
-                printf("relay packet\n");
-        }
-    }
-}
+    if(handle_th == NULL){
+        fprintf(stderr, "%s\n", errbuf_th);
 
-int main()
-{
-    char *dev, errbuf[PCAP_ERRBUF_SIZE];
-
-    dev = pcap_lookupdev(errbuf);
-
-    if (dev == NULL){
-        fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
-
-        return(2);
-    }
-
-    printf("Device: %s\n", dev);
-
-    handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
-
-    if (handle == NULL){
-        fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
-
-        return(2);
+        return (void*)(2);
     }
 
     u_char send_buf[sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18] =  {0,};
@@ -147,15 +104,8 @@ int main()
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
-    pthread_t packet_threads;
-    int sock=1;
-    if(pthread_create(&packet_threads, NULL, &packet_handler, (void*)&sock) < 0)
-            printf("thread error");
-
-    pthread_detach(packet_threads);
-
     while(1){
-        if(pcap_sendpacket(handle, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
+        if(pcap_sendpacket(handle_th, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
             printf("arp error\n");
 
         else{
@@ -165,5 +115,61 @@ int main()
         }
 
         sleep(1);
-     }
+    }
+
+    return 0;
+}
+
+int main()
+{
+    char *dev, errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle;
+    pthread_t packet_threads;
+
+    dev = pcap_lookupdev(errbuf);
+
+    if(dev == NULL){
+        fprintf(stderr, "Couldn't find default device: %s\n", errbuf);
+
+        return(2);
+    }
+
+    handle = pcap_open_live("eth0", BUFSIZ, 1, 1000, errbuf);
+
+    if(handle == NULL){
+        fprintf(stderr, "%s\n", errbuf);
+
+        return(2);
+    }
+
+    if(pthread_create(&packet_threads, NULL, packet_handler, (void*)NULL) < 0)
+            printf("Thread error");
+
+    while(1){
+        const u_char *p;
+        struct pcap_pkthdr *h;
+        int res = pcap_next_ex(handle, &h, &p);
+        struct libnet_ethernet_hdr* eth_check = (struct libnet_ethernet_hdr*)p;
+
+        if(res == -1) break;
+        if(res == 1){
+            if((eth_check->ether_shost[0] == 0x00) &&
+                    ((eth_check->ether_shost[1]) == 0x0c) &&
+                    ((eth_check->ether_shost[2]) == 0x29) &&
+                    ((eth_check->ether_shost[3]) == 0x81) &&
+                    ((eth_check->ether_shost[4]) == 0x57) &&
+                    ((eth_check->ether_shost[5]) == 0x56)){
+                eth_check->ether_dhost[0] = 0x00;
+                eth_check->ether_dhost[1] = 0x50;
+                eth_check->ether_dhost[2] = 0x56;
+                eth_check->ether_dhost[3] = 0xe9;
+                eth_check->ether_dhost[4] = 0xa9;
+                eth_check->ether_dhost[5] = 0x38;
+
+                if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) printf("relay error\n");
+
+                else printf("relay packet\n");
+            }
+        }
+    }
 }
