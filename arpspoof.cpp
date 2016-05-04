@@ -209,16 +209,15 @@ int main(int argc, char **argv)
     victim_ip = inet_addr(argv[1]);
     gateway_ip = inet_addr(argv[2]);
 
+    packet_function(1, gateway_ip, handle);
+
     while(1){ //get gateway mac address
         const u_char *p_gateway;
         struct pcap_pkthdr *h_gateway;
         int res_gateway = pcap_next_ex(handle, &h_gateway, &p_gateway);
         struct custom_arp_hdr* arp_gwcheck = (struct custom_arp_hdr*)(p_gateway + sizeof(struct libnet_ethernet_hdr));
 
-        packet_function(1, gateway_ip, handle);
-
         if(res_gateway == 1){
-            std::cout<<"successful"<<std::endl;
             if(arp_gwcheck->ar_sip == gateway_ip){
                 receiver_mac[0] = arp_gwcheck->ar_sha[0];
                 receiver_mac[1] = arp_gwcheck->ar_sha[1];
@@ -236,13 +235,13 @@ int main(int argc, char **argv)
         sleep(1);
     }
 
+    packet_function(2, victim_ip, handle);
+
     while(1){ //get sender mac address
         const u_char *p_sender;
         struct pcap_pkthdr *h_sender;
         int res_sender = pcap_next_ex(handle, &h_sender, &p_sender);
         struct custom_arp_hdr* arp_sdcheck = (struct custom_arp_hdr*)(p_sender + sizeof(struct libnet_ethernet_hdr));
-
-        packet_function(2, victim_ip, handle);
 
         if(res_sender == 1){
             if(arp_sdcheck->ar_sip == victim_ip){
