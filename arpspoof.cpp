@@ -25,7 +25,7 @@ struct custom_arp_hdr
 
 typedef struct thread_value
 {
-    u_int *sender_value;
+    u_int8_t *sender_value;
     u_int victim_value;
     u_int gateway_value;
     u_char *virtual_value;
@@ -69,7 +69,7 @@ void packet_function(int p_type, u_int gateway_func_ip, pcap_t *handle_func, u_i
 void *packet_handler(void *arg)
 {
     thread_value* pi = (thread_value*)arg;
-    u_int *sender_v = pi -> sender_value;
+    u_int8_t *sender_v = pi -> sender_value;
     u_int victim_v = pi -> victim_value;
     u_int gateway_v = pi -> gateway_value;
     u_char *virtual_v = pi -> virtual_value;
@@ -141,7 +141,8 @@ int main(int argc, char **argv)
     libnet_t *libnet_l;
     int find_count;
     char *dev, errbuf[PCAP_ERRBUF_SIZE];
-    u_int victim_ip, gateway_ip, receiver_mac[6], sender_mac[6];
+    u_int victim_ip, gateway_ip;
+    u_int8_t sender_mac[6], receiver_mac[6];
     u_int32_t attacker_ip;
     u_char virtual_mac[6] = {0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f};
     libnet_ether_addr* attacker_mac;
@@ -213,12 +214,14 @@ int main(int argc, char **argv)
 
         if(res_sender == 1){
             if(arp_sdcheck->ar_sip == victim_ip){
+                std::cout<<victim_ip<<std::endl;
+                std::cout<<arp_sdcheck->ar_sip<<std::endl;
                 sender_mac[0] = arp_sdcheck->ar_sha[0];
                 sender_mac[1] = arp_sdcheck->ar_sha[1];
                 sender_mac[2] = arp_sdcheck->ar_sha[2];
                 sender_mac[3] = arp_sdcheck->ar_sha[3];
                 sender_mac[4] = arp_sdcheck->ar_sha[4];
-                sender_mac[5] = arp_sdcheck->ar_sha[5]; //memcpy(sender_mac, arp_sdcheck->ar_sha, 6);
+                sender_mac[5] = arp_sdcheck->ar_sha[5]; // memcpy(sender_mac, arp_sdcheck->ar_sha, 6);
 
                 std::cout<<"Found the Victim MAC Address!\n";
 
