@@ -214,8 +214,6 @@ int main(int argc, char **argv)
 
         if(res_sender == 1){
             if(arp_sdcheck->ar_sip == victim_ip){
-                std::cout<<victim_ip<<std::endl;
-                std::cout<<arp_sdcheck->ar_sip<<std::endl;
                 sender_mac[0] = arp_sdcheck->ar_sha[0];
                 sender_mac[1] = arp_sdcheck->ar_sha[1];
                 sender_mac[2] = arp_sdcheck->ar_sha[2];
